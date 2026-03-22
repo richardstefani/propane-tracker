@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Propane">
+<meta name="theme-color" content="#1a1008">
+<title>Propane Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fire: #FF6B1A;
+    --fire-dim: #CC4A00;
+    --fire-glow: rgba(255,107,26,0.18);
+    --ember: #FFB347;
+    --bg: #0F0A04;
+    --bg2: #1A1008;
+    --bg3: #241808;
+    --surface: #2E2010;
+    --surface2: #3A2A14;
+    --text: #F5E6D0;
+    --text2: #A08060;
+    --text3: #6A5040;
+    --border: rgba(255,107,26,0.15);
+    --border2: rgba(255,107,26,0.3);
+    --safe: #4CAF50;
+    --warn: #FFB347;
+    --danger: #FF4444;
+    --radius: 14px;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  /* Background flame texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 100%, rgba(255,107,26,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 30% 60% at 20% 80%, rgba(204,74,0,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 430px;
+    margin: 0 auto;
+    padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 20px 20px 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .header-title {
+    font-family: var(--font-display);
+    font-size: 42px;
+    letter-spacing: 2px;
+    color: var(--fire);
+    line-height: 1;
+  }
+
+  .header-sub {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  .unit-toggle {
+    display: flex;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 0.5px solid var(--border);
+    overflow: hidden;
+  }
+
+  .unit-toggle button {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .unit-toggle button.active {
+    background: var(--fire);
+    color: white;
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 16px 20px 0;
+  }
+
+  .tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid var(--surface);
+    color: var(--text3);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 4px 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active {
+    color: var(--fire);
+    border-bottom-color: var(--fire);
+  }
+
+  /* ── Tab panels ── */
+  .panel { display: none; padding: 16px 20px 30px; }
+  .panel.active { display: flex; flex-direction: column; gap: 14px; }
+
+  /* ── Gauge card ── */
+  .gauge-card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .gauge-card::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--fire), transparent);
+    opacity: 0.4;
+  }
+
+  .gauge-wrap {
+    position: relative;
+    width: 180px;
+    height: 100px;
+    margin: 0 auto 12px;
+  }
+
+  .gauge-svg { width: 100%; height: 100%; }
+
+  .gauge-value {
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-display);
+    font-size: 36px;
+    letter-spacing: 1px;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .gauge-label {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+  }
+
+  .gauge-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .gauge-stat {
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 10px 8px;
+  }
+
+  .gauge-stat-label {
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .gauge-stat-value {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  /* ── Session button ── */
+  .session-btn {
+    width: 100%;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-display);
+    font-size: 28px;
+    letter-spacing: 3px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .session-btn.start {
+    background: var(--fire);
+    color: white;
+  }
+
+  .session-btn.stop {
+    background: transparent;
+    color: var(--danger);
+    border: 1.5px solid var(--danger);
+  }
+
+  .session-btn:active { transform: scale(0.98); }
+
+  .session-btn .btn-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Live session card ── */
+  .live-card {
+    background: var(--bg2);
+    border: 1px solid rgba(255,107,26,0.35);
+    border-radius: var(--radius);
+    padding: 18px;
+    display: none;
+  }
+
+  .live-card.visible { display: block; }
+
+  .live-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--fire);
+    margin-bottom: 10px;
+  }
+
+  .pulse-dot {
+    width: 7px; height: 7px;
+    background: var(--fire);
+    border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .live-timer {
+    font-family: var(--font-mono);
+    font-size: 48px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    line-height: 1;
+  }
+
+  .live-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .live-stat {
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 10px;
+  }
+
+  .live-stat-label {
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .live-stat-value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ember);
+  }
+
+  /* ── History ── */
+  .section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text3);
+    margin-bottom: 2px;
+  }
+
+  .history-empty {
+    text-align: center;
+    color: var(--text3);
+    font-size: 14px;
+    padding: 24px 0;
+  }
+
+  .session-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .session-date { font-size: 13px; color: var(--text2); }
+  .session-time-label { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+  .session-right { text-align: right; }
+  .session-duration {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .session-consumed { font-size: 12px; color: var(--text3); margin-top: 1px; }
+
+  /* ── Settings panel ── */
+  .settings-group {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .settings-group-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text3);
+    padding: 12px 16px 6px;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--border);
+  }
+
+  .settings-row:first-of-type { border-top: none; }
+
+  .settings-row label {
+    font-size: 14px;
+    color: var(--text2);
+  }
+
+  .settings-row .hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 1px;
+  }
+
+  .settings-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg3);
+    border: 0.5px solid var(--border2);
+    border-radius: 8px;
+    padding: 6px 10px;
+  }
+
+  .settings-input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 500;
+    width: 80px;
+    text-align: right;
+  }
+
+  .settings-unit {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .computed-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-top: 0.5px solid var(--border);
+    background: var(--bg3);
+  }
+
+  .computed-label { font-size: 12px; color: var(--text3); }
+  .computed-value { font-family: var(--font-mono); font-size: 13px; color: var(--ember); }
+
+  .reset-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(255,68,68,0.4);
+    border-radius: var(--radius);
+    color: var(--danger);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .reset-btn:active { background: rgba(255,68,68,0.08); }
+
+  /* ── Confirm dialog ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+
+  .overlay.visible { display: flex; }
+
+  .dialog {
+    background: var(--bg2);
+    border: 0.5px solid var(--border2);
+    border-radius: 18px;
+    padding: 24px;
+    width: 100%;
+    max-width: 320px;
+    text-align: center;
+  }
+
+  .dialog h3 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .dialog p {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .dialog-btns { display: flex; gap: 10px; }
+
+  .dialog-btns button {
+    flex: 1;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 12px;
+    cursor: pointer;
+  }
+
+  .dialog-cancel {
+    background: var(--surface);
+    color: var(--text2);
+  }
+
+  .dialog-confirm {
+    background: var(--danger);
+    color: white;
+  }
+
+  /* ── PWA install banner ── */
+  .install-banner {
+    margin: 0 20px;
+    background: var(--bg2);
+    border: 0.5px solid var(--border2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .install-banner-text { font-size: 12px; color: var(--text2); line-height: 1.4; flex: 1; }
+  .install-banner-text strong { color: var(--ember); }
+  .install-banner-close {
+    background: none; border: none; color: var(--text3); font-size: 18px; cursor: pointer; padding: 0 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Install hint (Safari only) -->
+  <div class="install-banner" id="installBanner">
+    <div class="install-banner-text">
+      <strong>Add to Home Screen</strong><br>
+      Tap the Share button in Safari, then "Add to Home Screen" to use like a real app.
+    </div>
+    <button class="install-banner-close" onclick="document.getElementById('installBanner').remove()">✕</button>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="header-sub">Pizza Oven</div>
+      <div class="header-title">PROPANE</div>
+    </div>
+    <div class="unit-toggle">
+      <button class="active" onclick="setUnit('metric')" id="btn-metric">kg / L</button>
+      <button onclick="setUnit('imperial')" id="btn-imperial">lb / gal</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('home')" id="tab-home">Home</button>
+    <button class="tab-btn" onclick="showTab('history')" id="tab-history">History</button>
+    <button class="tab-btn" onclick="showTab('settings')" id="tab-settings">Settings</button>
+  </div>
+
+  <!-- HOME panel -->
+  <div class="panel active" id="panel-home">
+
+    <!-- Gauge -->
+    <div class="gauge-card">
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 180 100">
+          <!-- Track -->
+          <path d="M 20 90 A 70 70 0 0 1 160 90" fill="none" stroke="#2E2010" stroke-width="10" stroke-linecap="round"/>
+          <!-- Fill -->
+          <path id="gaugeFill" d="M 20 90 A 70 70 0 0 1 160 90" fill="none" stroke="#FF6B1A" stroke-width="10" stroke-linecap="round"
+            stroke-dasharray="220" stroke-dashoffset="0"/>
+          <!-- Tick marks -->
+          <g id="gaugeTicks"></g>
+        </svg>
+        <div class="gauge-value" id="gaugePct">--%</div>
+      </div>
+      <div class="gauge-label">Tank level</div>
+      <div class="gauge-stats">
+        <div class="gauge-stat">
+          <div class="gauge-stat-label">Remaining</div>
+          <div class="gauge-stat-value" id="statRemaining">--</div>
+        </div>
+        <div class="gauge-stat">
+          <div class="gauge-stat-label">Volume</div>
+          <div class="gauge-stat-value" id="statVolume">--</div>
+        </div>
+        <div class="gauge-stat">
+          <div class="gauge-stat-label">Hrs left</div>
+          <div class="gauge-stat-value" id="statHours">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session button -->
+    <button class="session-btn start" id="sessionBtn" onclick="toggleSession()">
+      <svg class="btn-icon" id="btnIcon" viewBox="0 0 20 20" fill="currentColor">
+        <polygon points="5,3 18,10 5,17"/>
+      </svg>
+      <span id="btnLabel">START SESSION</span>
+    </button>
+
+    <!-- Live session -->
+    <div class="live-card" id="liveCard">
+      <div class="live-label">
+        <div class="pulse-dot"></div>
+        Session running
+      </div>
+      <div class="live-timer" id="liveTimer">00:00:00</div>
+      <div class="live-stats">
+        <div class="live-stat">
+          <div class="live-stat-label">Used this session</div>
+          <div class="live-stat-value" id="liveUsed">0.00 kg</div>
+        </div>
+        <div class="live-stat">
+          <div class="live-stat-label">Remaining now</div>
+          <div class="live-stat-value" id="liveRemaining">--</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- HISTORY panel -->
+  <div class="panel" id="panel-history">
+    <div class="section-title">Session history</div>
+    <div id="historyList">
+      <div class="history-empty">No sessions yet. Start your first session!</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS panel -->
+  <div class="panel" id="panel-settings">
+
+    <div class="settings-group">
+      <div class="settings-group-title">Canister</div>
+      <div class="settings-row">
+        <div>
+          <div>Gross weight (full)</div>
+          <div class="hint">Weigh the full canister</div>
+        </div>
+        <div class="settings-input-wrap">
+          <input class="settings-input" type="number" id="inputGross" value="28.0" step="0.1" onchange="saveSetting()">
+          <span class="settings-unit">kg</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div>Tare weight (empty)</div>
+          <div class="hint">Stamped on cylinder as "TW"</div>
+        </div>
+        <div class="settings-input-wrap">
+          <input class="settings-input" type="number" id="inputTare" value="14.0" step="0.1" onchange="saveSetting()">
+          <span class="settings-unit">kg</span>
+        </div>
+      </div>
+      <div class="computed-row">
+        <span class="computed-label">Usable propane</span>
+        <span class="computed-value" id="computedUsable">14.0 kg</span>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">Burner</div>
+      <div class="settings-row">
+        <div>
+          <div>Output (BTU/hr)</div>
+          <div class="hint">Check burner label or manual</div>
+        </div>
+        <div class="settings-input-wrap">
+          <input class="settings-input" type="number" id="inputBTU" value="75000" step="1000" onchange="saveSetting()">
+          <span class="settings-unit">BTU</span>
+        </div>
+      </div>
+      <div class="computed-row">
+        <span class="computed-label">Burn rate</span>
+        <span class="computed-value" id="computedBurnRate">0.36 kg/hr</span>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="confirmReset()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+        <path d="M3 3v5h5"/>
+      </svg>
+      Reset to full tank
+    </button>
+
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div class="overlay" id="resetOverlay">
+  <div class="dialog">
+    <h3>RESET TANK?</h3>
+    <p>This will clear all session history and treat the canister as full. This cannot be undone.</p>
+    <div class="dialog-btns">
+      <button class="dialog-cancel" onclick="closeDialog()">Cancel</button>
+      <button class="dialog-confirm" onclick="doReset()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+const state = {
+  useMetric: true,
+  grossKg: 28.0,
+  tareKg: 14.0,
+  btu: 75000,
+  sessions: [],
+  isRunning: false,
+  sessionStart: null,
+  elapsed: 0,
+  timerRef: null,
+  uiRef: null
+};
+
+// ── Persistence ────────────────────────────────────────────────
+function load() {
+  try {
+    const s = localStorage.getItem('propaneState');
+    if (s) {
+      const d = JSON.parse(s);
+      Object.assign(state, {
+        useMetric: d.useMetric ?? true,
+        grossKg: d.grossKg ?? 28.0,
+        tareKg: d.tareKg ?? 14.0,
+        btu: d.btu ?? 75000,
+        sessions: d.sessions ?? []
+      });
+    }
+  } catch(e) {}
+}
+
+function save() {
+  try {
+    localStorage.setItem('propaneState', JSON.stringify({
+      useMetric: state.useMetric,
+      grossKg: state.grossKg,
+      tareKg: state.tareKg,
+      btu: state.btu,
+      sessions: state.sessions
+    }));
+  } catch(e) {}
+}
+
+// ── Calculations ───────────────────────────────────────────────
+const BTU_PER_KG = 47400;       // propane energy density
+const KG_TO_LB = 2.20462;
+const L_PER_KG = 1.96;          // propane density ~0.51 kg/L
+const L_TO_GAL = 0.264172;
+
+function usableKg() { return Math.max(0, state.grossKg - state.tareKg); }
+function burnRateKgHr() { return state.btu / BTU_PER_KG; }
+function consumedKg() { return state.sessions.reduce((a, s) => a + s.consumedKg, 0); }
+function remainingKg() { return Math.max(0, usableKg() - consumedKg()); }
+function remainingFrac() { return usableKg() > 0 ? remainingKg() / usableKg() : 0; }
+function hoursLeft() { return burnRateKgHr() > 0 ? remainingKg() / burnRateKgHr() : 0; }
+function sessionConsumedKg() { return burnRateKgHr() * (state.elapsed / 3600); }
+
+function fmtWeight(kg) {
+  if (state.useMetric) return kg.toFixed(2) + ' kg';
+  return (kg * KG_TO_LB).toFixed(2) + ' lb';
+}
+
+function fmtVolume(kg) {
+  const L = kg * L_PER_KG;
+  if (state.useMetric) return L.toFixed(1) + ' L';
+  return (L * L_TO_GAL).toFixed(2) + ' gal';
+}
+
+function fmtDuration(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (h > 0) return `${h}h ${String(m).padStart(2,'0')}m`;
+  return `${m}m ${String(s).padStart(2,'0')}s`;
+}
+
+function fmtTimer(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// ── Gauge SVG ──────────────────────────────────────────────────
+function updateGauge(frac) {
+  const totalLen = 220;
+  const offset = totalLen * (1 - frac);
+  const fill = document.getElementById('gaugeFill');
+  fill.setAttribute('stroke-dashoffset', offset.toFixed(1));
+
+  // Colour by level
+  const col = frac > 0.4 ? '#FF6B1A' : frac > 0.2 ? '#FFB347' : '#FF4444';
+  fill.setAttribute('stroke', col);
+
+  document.getElementById('gaugePct').textContent = Math.round(frac * 100) + '%';
+  document.getElementById('gaugePct').style.color = col;
+}
+
+// ── UI update ──────────────────────────────────────────────────
+function updateUI() {
+  const rem = remainingKg();
+  const frac = remainingFrac();
+
+  updateGauge(frac);
+  document.getElementById('statRemaining').textContent = fmtWeight(rem);
+  document.getElementById('statVolume').textContent = fmtVolume(rem);
+  document.getElementById('statHours').textContent = hoursLeft().toFixed(1) + ' hr';
+
+  // Settings computed
+  document.getElementById('computedUsable').textContent = usableKg().toFixed(2) + ' kg';
+  document.getElementById('computedBurnRate').textContent = burnRateKgHr().toFixed(3) + ' kg/hr';
+
+  // Inputs
+  document.getElementById('inputGross').value = state.grossKg;
+  document.getElementById('inputTare').value = state.tareKg;
+  document.getElementById('inputBTU').value = state.btu;
+
+  // Unit buttons
+  document.getElementById('btn-metric').classList.toggle('active', state.useMetric);
+  document.getElementById('btn-imperial').classList.toggle('active', !state.useMetric);
+
+  // History
+  renderHistory();
+}
+
+function updateLive() {
+  if (!state.isRunning) return;
+  document.getElementById('liveTimer').textContent = fmtTimer(state.elapsed);
+  const used = sessionConsumedKg();
+  const remNow = Math.max(0, remainingKg() - used);
+  document.getElementById('liveUsed').textContent = fmtWeight(used);
+  document.getElementById('liveRemaining').textContent = fmtWeight(remNow);
+}
+
+// ── Session control ────────────────────────────────────────────
+function toggleSession() {
+  if (state.isRunning) {
+    stopSession();
+  } else {
+    startSession();
+  }
+}
+
+function startSession() {
+  state.isRunning = true;
+  state.sessionStart = Date.now();
+  state.elapsed = 0;
+
+  document.getElementById('sessionBtn').className = 'session-btn stop';
+  document.getElementById('btnLabel').textContent = 'STOP SESSION';
+  document.getElementById('btnIcon').innerHTML = '<rect x="4" y="4" width="12" height="12" rx="2"/>';
+  document.getElementById('liveCard').classList.add('visible');
+
+  state.timerRef = setInterval(() => {
+    state.elapsed = (Date.now() - state.sessionStart) / 1000;
+    updateLive();
+  }, 1000);
+}
+
+function stopSession() {
+  clearInterval(state.timerRef);
+  state.timerRef = null;
+
+  const session = {
+    id: Date.now(),
+    date: new Date(state.sessionStart).toISOString(),
+    durationSeconds: state.elapsed,
+    consumedKg: sessionConsumedKg()
+  };
+
+  state.sessions.unshift(session);
+  state.isRunning = false;
+  state.elapsed = 0;
+  state.sessionStart = null;
+
+  document.getElementById('sessionBtn').className = 'session-btn start';
+  document.getElementById('btnLabel').textContent = 'START SESSION';
+  document.getElementById('btnIcon').innerHTML = '<polygon points="5,3 18,10 5,17"/>';
+  document.getElementById('liveCard').classList.remove('visible');
+
+  save();
+  updateUI();
+}
+
+// ── History rendering ──────────────────────────────────────────
+function renderHistory() {
+  const el = document.getElementById('historyList');
+  if (!state.sessions.length) {
+    el.innerHTML = '<div class="history-empty">No sessions yet. Start your first session!</div>';
+    return;
+  }
+  el.innerHTML = state.sessions.map(s => {
+    const d = new Date(s.date);
+    const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="session-row">
+        <div>
+          <div class="session-date">${dateStr}</div>
+          <div class="session-time-label">${timeStr}</div>
+        </div>
+        <div class="session-right">
+          <div class="session-duration">${fmtDuration(s.durationSeconds)}</div>
+          <div class="session-consumed">${fmtWeight(s.consumedKg)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Settings ───────────────────────────────────────────────────
+function saveSetting() {
+  state.grossKg = parseFloat(document.getElementById('inputGross').value) || 28;
+  state.tareKg  = parseFloat(document.getElementById('inputTare').value)  || 14;
+  state.btu     = parseFloat(document.getElementById('inputBTU').value)   || 75000;
+  save();
+  updateUI();
+}
+
+function setUnit(unit) {
+  state.useMetric = unit === 'metric';
+  save();
+  updateUI();
+}
+
+// ── Tabs ───────────────────────────────────────────────────────
+function showTab(tab) {
+  ['home','history','settings'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('panel-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'history') renderHistory();
+}
+
+// ── Reset ──────────────────────────────────────────────────────
+function confirmReset() { document.getElementById('resetOverlay').classList.add('visible'); }
+function closeDialog()  { document.getElementById('resetOverlay').classList.remove('visible'); }
+
+function doReset() {
+  state.sessions = [];
+  save();
+  closeDialog();
+  updateUI();
+}
+
+// ── Init ───────────────────────────────────────────────────────
+load();
+updateUI();
+
+// Hide install banner if already standalone
+if (window.navigator.standalone) {
+  const b = document.getElementById('installBanner');
+  if (b) b.remove();
+}
+</script>
+</body>
+</html>
