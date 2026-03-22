@@ -674,6 +674,16 @@
           <span class="settings-unit">kg</span>
         </div>
       </div>
+      <div class="settings-row" style="background: rgba(255,107,26,0.06); border-radius: 0;">
+        <div>
+          <div style="color: var(--ember);">Current weight</div>
+          <div class="hint">Weigh canister now &amp; enter here</div>
+        </div>
+        <div class="settings-input-wrap" style="border-color: var(--fire);">
+          <input class="settings-input" type="number" id="inputCurrent" placeholder="--" step="0.1" onchange="saveSetting()">
+          <span class="settings-unit">kg</span>
+        </div>
+      </div>
       <div class="computed-row">
         <span class="computed-label">Usable propane</span>
         <span class="computed-value" id="computedUsable">14.0 kg</span>
@@ -728,6 +738,7 @@ const state = {
   grossKg: 28.0,
   tareKg: 14.0,
   btu: 75000,
+  currentWeightKg: null,
   sessions: [],
   isRunning: false,
   sessionStart: null,
@@ -747,6 +758,7 @@ function load() {
         grossKg: d.grossKg ?? 28.0,
         tareKg: d.tareKg ?? 14.0,
         btu: d.btu ?? 75000,
+        currentWeightKg: d.currentWeightKg ?? null,
         sessions: d.sessions ?? []
       });
     }
@@ -760,6 +772,7 @@ function save() {
       grossKg: state.grossKg,
       tareKg: state.tareKg,
       btu: state.btu,
+      currentWeightKg: state.currentWeightKg,
       sessions: state.sessions
     }));
   } catch(e) {}
@@ -774,7 +787,14 @@ const L_TO_GAL = 0.264172;
 function usableKg() { return Math.max(0, state.grossKg - state.tareKg); }
 function burnRateKgHr() { return state.btu / BTU_PER_KG; }
 function consumedKg() { return state.sessions.reduce((a, s) => a + s.consumedKg, 0); }
-function remainingKg() { return Math.max(0, usableKg() - consumedKg()); }
+function baselineRemainingKg() {
+  // If user weighed the canister, use that as the starting point
+  if (state.currentWeightKg !== null) {
+    return Math.max(0, state.currentWeightKg - state.tareKg);
+  }
+  return usableKg();
+}
+function remainingKg() { return Math.max(0, baselineRemainingKg() - consumedKg()); }
 function remainingFrac() { return usableKg() > 0 ? remainingKg() / usableKg() : 0; }
 function hoursLeft() { return burnRateKgHr() > 0 ? remainingKg() / burnRateKgHr() : 0; }
 function sessionConsumedKg() { return burnRateKgHr() * (state.elapsed / 3600); }
@@ -838,6 +858,9 @@ function updateUI() {
   document.getElementById('inputGross').value = state.grossKg;
   document.getElementById('inputTare').value = state.tareKg;
   document.getElementById('inputBTU').value = state.btu;
+  const curEl = document.getElementById('inputCurrent');
+  if (state.currentWeightKg !== null) curEl.value = state.currentWeightKg;
+  else curEl.value = '';
 
   // Unit buttons
   document.getElementById('btn-metric').classList.toggle('active', state.useMetric);
@@ -936,6 +959,8 @@ function saveSetting() {
   state.grossKg = parseFloat(document.getElementById('inputGross').value) || 28;
   state.tareKg  = parseFloat(document.getElementById('inputTare').value)  || 14;
   state.btu     = parseFloat(document.getElementById('inputBTU').value)   || 75000;
+  const cur = document.getElementById('inputCurrent').value;
+  state.currentWeightKg = cur !== '' ? parseFloat(cur) : null;
   save();
   updateUI();
 }
@@ -961,6 +986,7 @@ function closeDialog()  { document.getElementById('resetOverlay').classList.remo
 
 function doReset() {
   state.sessions = [];
+  state.currentWeightKg = null;
   save();
   closeDialog();
   updateUI();
