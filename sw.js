@@ -1,4 +1,4 @@
-const CACHE = 'propane-v1';
+const CACHE = 'propane-v2';
 const APP_FILE = '/propane-tracker/';
 
 self.addEventListener('install', e => {
