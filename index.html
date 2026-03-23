@@ -1316,6 +1316,30 @@ if (window.navigator.standalone) {
   const b = document.getElementById('installBanner');
   if (b) b.remove();
 }
+
+// ── Service worker registration ────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/propane-tracker/sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateBanner();
+        }
+      });
+    });
+  });
+}
+
+function showUpdateBanner() {
+  const banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--fire);color:white;font-family:var(--font-body);font-size:14px;font-weight:500;padding:12px 20px;border-radius:12px;display:flex;align-items:center;gap:12px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.4);white-space:nowrap;';
+  banner.innerHTML = `
+    <span>Update available</span>
+    <button onclick="window.location.reload()" style="background:white;color:var(--fire);border:none;border-radius:8px;font-family:var(--font-body);font-size:13px;font-weight:500;padding:6px 12px;cursor:pointer;">Refresh</button>
+  `;
+  document.body.appendChild(banner);
+}
 </script>
 </body>
 </html>
