@@ -620,6 +620,22 @@
       <span id="btnLabel">START SESSION</span>
     </button>
 
+    <!-- Weigh-in button -->
+    <button onclick="openWeighIn()" style="width:100%;background:transparent;border:0.5px solid var(--border2);border-radius:var(--radius);color:var(--ember);font-family:var(--font-body);font-size:15px;font-weight:500;padding:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      Record weigh-in
+    </button>
+
+    <!-- Calibration nudge -->
+    <div id="calibrationNudge" style="display:none;background:rgba(255,179,71,0.08);border:0.5px solid rgba(255,179,71,0.3);border-radius:10px;padding:12px 14px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ember);margin-bottom:6px;">Calibration available</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;" id="calibrationText"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button onclick="dismissCalibration()" style="flex:1;background:transparent;border:0.5px solid var(--border2);border-radius:8px;color:var(--text3);font-family:var(--font-body);font-size:13px;padding:8px;cursor:pointer;">Keep current</button>
+        <button onclick="applyCalibration()" style="flex:1;background:var(--ember);border:none;border-radius:8px;color:#1a1008;font-family:var(--font-body);font-size:13px;font-weight:500;padding:8px;cursor:pointer;">Update BTU</button>
+      </div>
+    </div>
+
     <!-- Live session -->
     <div class="live-card" id="liveCard">
       <div class="live-label">
@@ -643,7 +659,10 @@
 
   <!-- HISTORY panel -->
   <div class="panel" id="panel-history">
-    <div class="section-title">Session history</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="section-title">Session history</div>
+      <button onclick="openSessionDialog(null)" style="background:var(--fire);border:none;border-radius:8px;color:white;font-family:var(--font-body);font-size:13px;font-weight:500;padding:6px 12px;cursor:pointer;">+ Add session</button>
+    </div>
     <div id="historyList">
       <div class="history-empty">No sessions yet. Start your first session!</div>
     </div>
@@ -674,19 +693,13 @@
           <span class="settings-unit">kg</span>
         </div>
       </div>
-      <div class="settings-row" style="background: rgba(255,107,26,0.06); border-radius: 0;">
-        <div>
-          <div style="color: var(--ember);">Current weight</div>
-          <div class="hint">Weigh canister now &amp; enter here</div>
-        </div>
-        <div class="settings-input-wrap" style="border-color: var(--fire);">
-          <input class="settings-input" type="number" id="inputCurrent" placeholder="--" step="0.1" onchange="saveSetting()">
-          <span class="settings-unit">kg</span>
-        </div>
-      </div>
       <div class="computed-row">
         <span class="computed-label">Usable propane</span>
         <span class="computed-value" id="computedUsable">14.0 kg</span>
+      </div>
+      <div class="computed-row">
+        <span class="computed-label">Last weigh-in</span>
+        <span class="computed-value" id="computedLastWeighIn">None recorded</span>
       </div>
     </div>
 
@@ -731,6 +744,80 @@
   </div>
 </div>
 
+<!-- Session add/edit dialog -->
+<div class="overlay" id="sessionOverlay">
+  <div class="dialog" style="text-align:left;">
+    <h3 id="sessionDialogTitle">ADD SESSION</h3>
+    <p style="margin-bottom:16px;font-size:13px;color:var(--text2);">Enter the date, time and duration of the session.</p>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Date</div>
+        <input type="date" id="sessionDate" style="width:100%;background:var(--bg3);border:0.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:15px;padding:8px 10px;">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Time started</div>
+        <input type="time" id="sessionTime" style="width:100%;background:var(--bg3);border:0.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:15px;padding:8px 10px;">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Duration</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div style="flex:1;">
+            <input type="number" id="sessionHours" min="0" max="23" placeholder="0" style="width:100%;background:var(--bg3);border:0.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:15px;padding:8px 10px;">
+          </div>
+          <span style="color:var(--text3);font-size:13px;">hr</span>
+          <div style="flex:1;">
+            <input type="number" id="sessionMins" min="0" max="59" placeholder="0" style="width:100%;background:var(--bg3);border:0.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:15px;padding:8px 10px;">
+          </div>
+          <span style="color:var(--text3);font-size:13px;">min</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="sessionError" style="display:none;color:var(--danger);font-size:12px;margin-top:10px;"></div>
+
+    <div style="display:flex;gap:8px;margin-top:18px;">
+      <button class="dialog-cancel" style="flex:1;" onclick="closeSessionDialog()">Cancel</button>
+      <button id="sessionDeleteBtn" style="flex:1;background:transparent;border:1px solid var(--danger);border-radius:10px;color:var(--danger);font-family:var(--font-body);font-size:14px;font-weight:500;padding:12px;cursor:pointer;display:none;" onclick="deleteSession()">Delete</button>
+      <button class="dialog-confirm" style="flex:1;" onclick="saveSession()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Weigh-in dialog -->
+<div class="overlay" id="weighInOverlay">
+  <div class="dialog" style="text-align:left;">
+    <h3>RECORD WEIGH-IN</h3>
+    <p style="margin-bottom:16px;font-size:13px;color:var(--text2);">Put the canister on your scales and enter the current weight. The app will compare this against its estimate and calibrate if needed.</p>
+    <div>
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Current canister weight</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="weighInValue" step="0.1" placeholder="e.g. 18.7" style="flex:1;background:var(--bg3);border:0.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:18px;padding:10px 12px;">
+        <span style="color:var(--text3);font-size:14px;">kg</span>
+      </div>
+    </div>
+    <div id="weighInPreview" style="margin-top:12px;background:var(--bg3);border-radius:8px;padding:12px;display:none;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--text3);">App estimate</span>
+        <span style="font-family:var(--font-mono);font-size:13px;color:var(--text2);" id="weighInEstimate">--</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--text3);">You entered</span>
+        <span style="font-family:var(--font-mono);font-size:13px;color:var(--text);" id="weighInActual">--</span>
+      </div>
+      <div style="border-top:0.5px solid var(--border);padding-top:6px;margin-top:2px;display:flex;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--text3);">Difference</span>
+        <span style="font-family:var(--font-mono);font-size:13px;" id="weighInDiff">--</span>
+      </div>
+    </div>
+    <div id="weighInError" style="display:none;color:var(--danger);font-size:12px;margin-top:8px;"></div>
+    <div style="display:flex;gap:8px;margin-top:18px;">
+      <button class="dialog-cancel" style="flex:1;" onclick="closeWeighIn()">Cancel</button>
+      <button class="dialog-confirm" style="flex:1;" onclick="confirmWeighIn()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── State ──────────────────────────────────────────────────────
 const state = {
@@ -740,6 +827,8 @@ const state = {
   btu: 75000,
   currentWeightKg: null,
   sessions: [],
+  weighIns: [],
+  pendingBTU: null,
   isRunning: false,
   sessionStart: null,
   elapsed: 0,
@@ -759,7 +848,9 @@ function load() {
         tareKg: d.tareKg ?? 14.0,
         btu: d.btu ?? 75000,
         currentWeightKg: d.currentWeightKg ?? null,
-        sessions: d.sessions ?? []
+        sessions: d.sessions ?? [],
+        weighIns: d.weighIns ?? [],
+        pendingBTU: d.pendingBTU ?? null
       });
     }
   } catch(e) {}
@@ -773,7 +864,9 @@ function save() {
       tareKg: state.tareKg,
       btu: state.btu,
       currentWeightKg: state.currentWeightKg,
-      sessions: state.sessions
+      sessions: state.sessions,
+      weighIns: state.weighIns,
+      pendingBTU: state.pendingBTU
     }));
   } catch(e) {}
 }
@@ -854,13 +947,35 @@ function updateUI() {
   document.getElementById('computedUsable').textContent = usableKg().toFixed(2) + ' kg';
   document.getElementById('computedBurnRate').textContent = burnRateKgHr().toFixed(3) + ' kg/hr';
 
+  // Last weigh-in
+  const lastWeighIn = state.weighIns.length ? state.weighIns[state.weighIns.length - 1] : null;
+  const weighInEl = document.getElementById('computedLastWeighIn');
+  if (lastWeighIn) {
+    const d = new Date(lastWeighIn.date);
+    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    weighInEl.textContent = `${lastWeighIn.weightKg.toFixed(1)} kg · ${dateStr}`;
+  } else {
+    weighInEl.textContent = 'None recorded';
+  }
+
   // Inputs
   document.getElementById('inputGross').value = state.grossKg;
   document.getElementById('inputTare').value = state.tareKg;
   document.getElementById('inputBTU').value = state.btu;
-  const curEl = document.getElementById('inputCurrent');
-  if (state.currentWeightKg !== null) curEl.value = state.currentWeightKg;
-  else curEl.value = '';
+
+  // Calibration nudge
+  const nudge = document.getElementById('calibrationNudge');
+  if (state.pendingBTU !== null) {
+    const currentRate = burnRateKgHr();
+    const pendingRate = state.pendingBTU / BTU_PER_KG;
+    document.getElementById('calibrationText').innerHTML =
+      `Based on your weigh-in, your actual burn rate is <strong style="color:var(--ember)">${pendingRate.toFixed(3)} kg/hr</strong> ` +
+      `(${state.pendingBTU.toLocaleString()} BTU).<br>Your current setting implies <strong style="color:var(--text2)">${currentRate.toFixed(3)} kg/hr</strong> ` +
+      `(${state.btu.toLocaleString()} BTU).`;
+    nudge.style.display = 'block';
+  } else {
+    nudge.style.display = 'none';
+  }
 
   // Unit buttons
   document.getElementById('btn-metric').classList.toggle('active', state.useMetric);
@@ -941,7 +1056,7 @@ function renderHistory() {
     const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
     const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     return `
-      <div class="session-row">
+      <div class="session-row" onclick="openSessionDialog('${s.id}')" style="cursor:pointer;">
         <div>
           <div class="session-date">${dateStr}</div>
           <div class="session-time-label">${timeStr}</div>
@@ -950,6 +1065,7 @@ function renderHistory() {
           <div class="session-duration">${fmtDuration(s.durationSeconds)}</div>
           <div class="session-consumed">${fmtWeight(s.consumedKg)}</div>
         </div>
+        <div style="color:var(--text3);font-size:18px;margin-left:8px;line-height:1;">›</div>
       </div>`;
   }).join('');
 }
@@ -959,8 +1075,6 @@ function saveSetting() {
   state.grossKg = parseFloat(document.getElementById('inputGross').value) || 28;
   state.tareKg  = parseFloat(document.getElementById('inputTare').value)  || 14;
   state.btu     = parseFloat(document.getElementById('inputBTU').value)   || 75000;
-  const cur = document.getElementById('inputCurrent').value;
-  state.currentWeightKg = cur !== '' ? parseFloat(cur) : null;
   save();
   updateUI();
 }
@@ -980,6 +1094,205 @@ function showTab(tab) {
   if (tab === 'history') renderHistory();
 }
 
+// ── Weigh-in & calibration ─────────────────────────────────────
+function openWeighIn() {
+  document.getElementById('weighInValue').value = '';
+  document.getElementById('weighInPreview').style.display = 'none';
+  document.getElementById('weighInError').style.display = 'none';
+  document.getElementById('weighInOverlay').classList.add('visible');
+
+  // Live preview as user types
+  document.getElementById('weighInValue').oninput = function() {
+    const val = parseFloat(this.value);
+    if (isNaN(val)) { document.getElementById('weighInPreview').style.display = 'none'; return; }
+    const estimatedTotal = state.tareKg + remainingKg();
+    const diff = val - estimatedTotal;
+    const preview = document.getElementById('weighInPreview');
+    preview.style.display = 'block';
+    document.getElementById('weighInEstimate').textContent = estimatedTotal.toFixed(2) + ' kg';
+    document.getElementById('weighInActual').textContent = val.toFixed(2) + ' kg';
+    const diffEl = document.getElementById('weighInDiff');
+    diffEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(2) + ' kg';
+    diffEl.style.color = Math.abs(diff) < 0.1 ? 'var(--safe)' : Math.abs(diff) < 0.5 ? 'var(--warn)' : 'var(--danger)';
+  };
+}
+
+function closeWeighIn() {
+  document.getElementById('weighInOverlay').classList.remove('visible');
+}
+
+function confirmWeighIn() {
+  const val = parseFloat(document.getElementById('weighInValue').value);
+  const errEl = document.getElementById('weighInError');
+  if (isNaN(val) || val <= 0) {
+    errEl.textContent = 'Please enter a valid weight.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (val < state.tareKg) {
+    errEl.textContent = `Weight can't be less than tare weight (${state.tareKg} kg).`;
+    errEl.style.display = 'block';
+    return;
+  }
+  if (val > state.grossKg + 1) {
+    errEl.textContent = `Weight seems too high — greater than full canister weight.`;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Calculate actual propane remaining from weigh-in
+  const actualRemainingKg = val - state.tareKg;
+
+  // Calculate total session hours logged since last weigh-in (or since currentWeightKg was set)
+  const lastAnchorKg = state.currentWeightKg !== null
+    ? state.currentWeightKg - state.tareKg
+    : usableKg();
+  const consumedSinceAnchor = lastAnchorKg - actualRemainingKg;
+  const totalSecsSinceAnchor = state.sessions.reduce((a, s) => a + s.durationSeconds, 0);
+  const hoursSinceAnchor = totalSecsSinceAnchor / 3600;
+
+  // Record weigh-in
+  state.weighIns.push({
+    date: new Date().toISOString(),
+    weightKg: val,
+    actualRemainingKg
+  });
+
+  // Update current weight anchor
+  state.currentWeightKg = val;
+
+  // Calculate calibrated BTU if we have enough session data
+  if (hoursSinceAnchor > 0.25 && consumedSinceAnchor > 0.05) {
+    const realBurnRate = consumedSinceAnchor / hoursSinceAnchor;
+    const calibratedBTU = Math.round(realBurnRate * BTU_PER_KG);
+    // Only suggest if meaningfully different (>5%)
+    if (Math.abs(calibratedBTU - state.btu) / state.btu > 0.05) {
+      state.pendingBTU = calibratedBTU;
+    } else {
+      state.pendingBTU = null;
+    }
+  } else {
+    state.pendingBTU = null;
+  }
+
+  save();
+  updateUI();
+  closeWeighIn();
+
+  // Switch to home tab to show calibration nudge if present
+  showTab('home');
+}
+
+function applyCalibration() {
+  if (state.pendingBTU === null) return;
+  state.btu = state.pendingBTU;
+  state.pendingBTU = null;
+  // Recalculate all session consumedKg with new rate
+  const newRate = burnRateKgHr();
+  state.sessions = state.sessions.map(s => ({
+    ...s,
+    consumedKg: newRate * (s.durationSeconds / 3600)
+  }));
+  save();
+  updateUI();
+  document.getElementById('inputBTU').value = state.btu;
+}
+
+function dismissCalibration() {
+  state.pendingBTU = null;
+  save();
+  updateUI();
+}
+
+// ── Session dialog ─────────────────────────────────────────────
+let editingSessionId = null;
+
+function openSessionDialog(id) {
+  editingSessionId = id;
+  const overlay = document.getElementById('sessionOverlay');
+  const title = document.getElementById('sessionDialogTitle');
+  const deleteBtn = document.getElementById('sessionDeleteBtn');
+  const err = document.getElementById('sessionError');
+  err.style.display = 'none';
+
+  if (id) {
+    // Edit existing
+    title.textContent = 'EDIT SESSION';
+    deleteBtn.style.display = 'block';
+    const s = state.sessions.find(s => s.id == id);
+    if (!s) return;
+    const d = new Date(s.date);
+    document.getElementById('sessionDate').value = d.toISOString().slice(0,10);
+    document.getElementById('sessionTime').value = d.toTimeString().slice(0,5);
+    document.getElementById('sessionHours').value = Math.floor(s.durationSeconds / 3600);
+    document.getElementById('sessionMins').value = Math.floor((s.durationSeconds % 3600) / 60);
+  } else {
+    // Add new
+    title.textContent = 'ADD SESSION';
+    deleteBtn.style.display = 'none';
+    const now = new Date();
+    document.getElementById('sessionDate').value = now.toISOString().slice(0,10);
+    document.getElementById('sessionTime').value = now.toTimeString().slice(0,5);
+    document.getElementById('sessionHours').value = '';
+    document.getElementById('sessionMins').value = '';
+  }
+
+  overlay.classList.add('visible');
+}
+
+function closeSessionDialog() {
+  document.getElementById('sessionOverlay').classList.remove('visible');
+  editingSessionId = null;
+}
+
+function saveSession() {
+  const err = document.getElementById('sessionError');
+  const dateVal = document.getElementById('sessionDate').value;
+  const timeVal = document.getElementById('sessionTime').value;
+  const hours = parseInt(document.getElementById('sessionHours').value) || 0;
+  const mins  = parseInt(document.getElementById('sessionMins').value)  || 0;
+  const totalSecs = hours * 3600 + mins * 60;
+
+  if (!dateVal) { err.textContent = 'Please enter a date.'; err.style.display='block'; return; }
+  if (totalSecs <= 0) { err.textContent = 'Please enter a duration greater than zero.'; err.style.display='block'; return; }
+
+  const dateObj = new Date(`${dateVal}T${timeVal || '12:00'}`);
+  const consumed = burnRateKgHr() * (totalSecs / 3600);
+
+  if (editingSessionId) {
+    const idx = state.sessions.findIndex(s => s.id == editingSessionId);
+    if (idx !== -1) {
+      state.sessions[idx] = {
+        id: editingSessionId,
+        date: dateObj.toISOString(),
+        durationSeconds: totalSecs,
+        consumedKg: consumed
+      };
+    }
+  } else {
+    state.sessions.unshift({
+      id: Date.now(),
+      date: dateObj.toISOString(),
+      durationSeconds: totalSecs,
+      consumedKg: consumed
+    });
+    // Sort by date descending
+    state.sessions.sort((a,b) => new Date(b.date) - new Date(a.date));
+  }
+
+  save();
+  updateUI();
+  closeSessionDialog();
+}
+
+function deleteSession() {
+  if (!editingSessionId) return;
+  state.sessions = state.sessions.filter(s => s.id != editingSessionId);
+  save();
+  updateUI();
+  closeSessionDialog();
+}
+
 // ── Reset ──────────────────────────────────────────────────────
 function confirmReset() { document.getElementById('resetOverlay').classList.add('visible'); }
 function closeDialog()  { document.getElementById('resetOverlay').classList.remove('visible'); }
@@ -987,6 +1300,8 @@ function closeDialog()  { document.getElementById('resetOverlay').classList.remo
 function doReset() {
   state.sessions = [];
   state.currentWeightKg = null;
+  state.weighIns = [];
+  state.pendingBTU = null;
   save();
   closeDialog();
   updateUI();
