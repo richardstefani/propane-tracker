@@ -850,7 +850,9 @@ function load() {
         currentWeightKg: d.currentWeightKg ?? null,
         sessions: d.sessions ?? [],
         weighIns: d.weighIns ?? [],
-        pendingBTU: d.pendingBTU ?? null
+        pendingBTU: d.pendingBTU ?? null,
+        isRunning: d.isRunning ?? false,
+        sessionStart: d.sessionStart ?? null
       });
     }
   } catch(e) {}
@@ -866,7 +868,9 @@ function save() {
       currentWeightKg: state.currentWeightKg,
       sessions: state.sessions,
       weighIns: state.weighIns,
-      pendingBTU: state.pendingBTU
+      pendingBTU: state.pendingBTU,
+      isRunning: state.isRunning,
+      sessionStart: state.sessionStart
     }));
   } catch(e) {}
 }
@@ -1012,6 +1016,8 @@ function startSession() {
   document.getElementById('btnLabel').textContent = 'STOP SESSION';
   document.getElementById('btnIcon').innerHTML = '<rect x="4" y="4" width="12" height="12" rx="2"/>';
   document.getElementById('liveCard').classList.add('visible');
+
+  save(); // Save immediately so we have sessionStart in localStorage
 
   state.timerRef = setInterval(() => {
     state.elapsed = (Date.now() - state.sessionStart) / 1000;
@@ -1310,6 +1316,35 @@ function doReset() {
 // ── Init ───────────────────────────────────────────────────────
 load();
 updateUI();
+
+// Resume session if it was active when app was backgrounded
+if (state.isRunning && state.sessionStart) {
+  // App was backgrounded with an active session
+  // Restart the timer from the saved wall-clock time
+  document.getElementById('sessionBtn').className = 'session-btn stop';
+  document.getElementById('btnLabel').textContent = 'STOP SESSION';
+  document.getElementById('btnIcon').innerHTML = '<rect x="4" y="4" width="12" height="12" rx="2"/>';
+  document.getElementById('liveCard').classList.add('visible');
+
+  state.timerRef = setInterval(() => {
+    state.elapsed = (Date.now() - state.sessionStart) / 1000;
+    updateLive();
+  }, 1000);
+}
+
+// Listen for app coming back to foreground to catch timer resets
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && state.isRunning && state.sessionStart) {
+    // App just came to foreground with an active session
+    // If timer interval is not running (Safari suspended it), restart it
+    if (!state.timerRef) {
+      state.timerRef = setInterval(() => {
+        state.elapsed = (Date.now() - state.sessionStart) / 1000;
+        updateLive();
+      }, 1000);
+    }
+  }
+});
 
 // Hide install banner if already standalone
 if (window.navigator.standalone) {
